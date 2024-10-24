@@ -17,11 +17,10 @@ def extract_next_links(url, resp):
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
-    # print(f"Extracting links from {url}")
-    # soup = BeautifulSoup(resp.raw_response.content, "lxml")
     links = extract_links(url, resp)
-    # print(f"{len(links)} links extracted from {url}")
-    # print(links)
+ 
+    extract_html_content(resp)
+
     return [link for link in links if is_valid(link)]
 
 def is_valid(url):
@@ -82,3 +81,12 @@ def extract_links(url, resp):
 
 
     return clean_links
+
+def extract_html_content(resp):
+    """
+    Extract and print the content of the HTML page
+
+    @TODO Need to be tokenized instead of printing to the console
+    """
+    soup = BeautifulSoup(resp.raw_response.content, "lxml")
+    print(soup.get_text(separator=" ", strip=True))
