@@ -1,5 +1,5 @@
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse,urlunparse
 from bs4 import BeautifulSoup
 
 # A set of stop words that will be ignored when reading from pages
@@ -32,7 +32,6 @@ def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
-
 def extract_next_links(url, resp):
     # Implementation required.
     # url: the URL that was used to get the page
@@ -44,13 +43,11 @@ def extract_next_links(url, resp):
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
-    # print(f"Extracting links from {url}")
-    # soup = BeautifulSoup(resp.raw_response.content, "lxml")
     links = extract_links(url, resp)
-    # print(f"{len(links)} links extracted from {url}")
-    # print(links)
-    return [link for link in links if is_valid(link)]
 
+    extract_html_content(resp)
+
+    return [link for link in links if is_valid(link)]
 
 def is_valid(url):
     # Decide whether to crawl this url or not. 
@@ -81,18 +78,41 @@ def is_valid(url):
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
 
     except TypeError:
-        print("TypeError for ", parsed)
+        print ("TypeError for ", parsed)
         raise
-
 
 def extract_links(url, resp):
     if resp.status != 200:
         return []
-
+    
     if not resp.raw_response or not resp.raw_response.content:
         return []
-
+    
     soup = BeautifulSoup(resp.raw_response.content, "lxml")
-    # links = [a.get("href") for a in soup.find_all("a")]
+    ## start to find the a tag and extract the href content
+    raw_links = []
+    for a_tag in soup.find_all('a'):
+        href = a_tag.get('href')
 
-    return [a.get("href") for a in soup.find_all("a")]
+        if href:
+            raw_links.append(href)
+
+    clean_links = []
+    for link in raw_links:
+        parsed_link = urlparse(link)
+        link_with_no_frag = urlunparse(
+            (parsed_link.scheme, parsed_link.netloc, parsed_link.path, parsed_link.params, parsed_link.query, "")
+        )
+        clean_links.append(link_with_no_frag)
+
+
+    return clean_links
+
+def extract_html_content(resp):
+    """
+    Extract and print the content of the HTML page
+
+    @TODO Need to be tokenized instead of printing to the console
+    """
+    soup = BeautifulSoup(resp.raw_response.content, "lxml")
+    print(soup.get_text(separator=" ", strip=True))
