@@ -53,13 +53,22 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-    allowed_domains = [
+    allowed_domains = {
         "ics.uci.edu",
         "cs.uci.edu",
         "informatics.uci.edu",
         "stat.uci.edu",
         "today.uci.edu"
-    ]
+    }
+
+    trap_urls = {
+        "?share=",
+        "pdf",
+        "redirect",
+        "#comment",
+        "#comments"
+        "#respond"
+    }
 
     try:
         parsed = urlparse(url)
@@ -67,6 +76,9 @@ def is_valid(url):
             return False
         if parsed.netloc not in allowed_domains:
             return False
+        for trap in trap_urls:
+            if trap in url:
+                return False
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
