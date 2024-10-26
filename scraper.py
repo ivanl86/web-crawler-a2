@@ -1,3 +1,4 @@
+from datetime import datetime
 import re
 from urllib.parse import urlparse,urlunparse
 from bs4 import BeautifulSoup
@@ -79,7 +80,7 @@ def is_valid(url):
         for trap in trap_urls:
             if trap in url:
                 return False
-        return not re.match(
+        if re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
             + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
@@ -87,7 +88,19 @@ def is_valid(url):
             + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
+            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
+            return False
+        
+        date_pattern = re.search(r"(\d{4}-\d{2})(?:-\d{2})?", parsed.query)
+
+        if date_pattern:
+            date_str = date_pattern.group(1)
+            url_date = datetime.strptime(date_str, "%Y-%m")
+
+            if url_date < datetime(2024, 10, 1):
+                return False
+        
+        return True
 
     except TypeError:
         print ("TypeError for ", parsed)
@@ -127,4 +140,4 @@ def extract_html_content(resp):
     @TODO Need to be tokenized instead of printing to the console
     """
     soup = BeautifulSoup(resp.raw_response.content, "lxml")
-    print(soup.get_text(separator=" ", strip=True))
+    # print(soup.get_text(separator=" ", strip=True))
