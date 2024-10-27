@@ -1,3 +1,5 @@
+import re
+
 class Database:
     invalid_urls = set()
     # Save all unique urls for problem 1
@@ -13,7 +15,7 @@ class Database:
     def write_unique_urls():
         try:
             with open("unique_urls.txt", "a") as f:
-                f.write(f"{len(Database.unique_urls)}\n")
+                f.write(f"Total unique urls found: {len(Database.unique_urls)}\n")
                 for url in Database.unique_urls:
                     f.write(f"{url}\n")
         except Exception as e:
@@ -31,7 +33,7 @@ class Database:
     def write_common_tokens():
         try:
             with open("tokens.txt", "w") as f:
-                for token, count in Database.tokens.items():
+                for token, count in sorted(((token, count) for token, count in Database.tokens.items() if token not in stop_words), key=lambda item: item[1], reverse=True)[:50]:
                     f.write(f"{token} {count}\n")
         except Exception as e:
             print(e)
@@ -40,14 +42,30 @@ class Database:
     def write_subdomains():
         try:
             with open("subdomains.txt", "w") as f:
-                for subdomain, count in Database.subdomains.items():
+                for subdomain, count in sorted(Database.subdomains.items()):
                     f.write(f"{subdomain} {count}\n")
         except Exception as e:
             print(e)
 
     @staticmethod
     def tokenize(url, text):
-        pass
+        tokens = text.lower().split(" ")
+
+        # Find the longest page including stop words in problem 2
+        if len(tokens) > Database.longest_page[1]:
+            Database.longest_page[0] = url
+            Database.longest_page[1] = len(tokens)
+
+        tokens = [re.sub(r"[^a-zA-Z0-9']", "", token) for token in tokens]
+
+        # Add tokens to Database
+        for token in tokens:
+            if token:
+                Database.tokens[token] = Database.tokens.get(token, 0) + 1
+        
+        # Save and count the occurence of each token in problem 3
+        for token in tokens:
+            Database.tokens[token] = Database.tokens.get(token, 0) + 1
 
 
 # A set of stop words that will be ignored when finding the most common words in problem 3
