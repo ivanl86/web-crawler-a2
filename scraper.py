@@ -23,7 +23,7 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
     # @TODO Need to check if url is already in database
-    if resp.status >= 400 or resp.status == 204 or url in db.visited_urls:
+    if resp.status >= 400 or resp.status == 204 or url in db.invalid_urls:
         db.invalid_urls.add(url)
         return list()
     
@@ -93,7 +93,7 @@ def is_valid(url):
             return False
         if parsed.netloc not in allowed_domains:
             return False
-        if url in db.visited_urls:
+        if url in db.invalid_urls:
             return False
         for trap in trap_urls:
             if trap in url:
