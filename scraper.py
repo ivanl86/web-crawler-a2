@@ -2,34 +2,9 @@ from datetime import datetime
 import re
 from urllib.parse import urlparse, urlunparse
 from bs4 import BeautifulSoup, Comment
+from crawler.database import Database as db
 
 lower_bound = 2500
-
-# A set of stop words that will be ignored when reading from pages
-stop_word = {'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', "aren't", 'as',
-             'at', 'be', 'because',
-             'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by', "can't", 'cannot', 'could', "couldn't",
-             'did', "didn't", 'do',
-             'does', "doesn't", 'doing', "don't", 'down', 'during', 'each', 'few', 'for', 'from', 'further', 'had',
-             "hadn't", 'has', "hasn't",
-             'have', "haven't", 'having', 'he', "he'd", "he'll", "he's", 'her', 'here', "here's", 'hers', 'herself',
-             'him', 'himself', 'his',
-             'how', "how's", 'i', "i'd", "i'll", "i'm", "i've", 'if', 'in', 'into', 'is', "isn't", 'it', "it's", 'its',
-             'itself', "let's", 'me',
-             'more', 'most', "mustn't", 'my', 'myself', 'no', 'nor', 'not', 'of', 'off', 'on', 'once', 'only', 'or',
-             'other', 'ought', 'our',
-             'ours', 'ourselves', 'out', 'over', 'own', 'same', "shan't", 'she', "she'd", "she'll", "she's", 'should',
-             "shouldn't", 'so', 'some',
-             'such', 'than', 'that', "that's", 'the', 'their', 'theirs', 'them', 'themselves', 'then', 'there',
-             "there's", 'these', 'they',
-             "they'd", "they'll", "they're", "they've", 'this', 'those', 'through', 'to', 'too', 'under', 'until', 'up',
-             'very', 'was', "wasn't",
-             'we', "we'd", "we'll", "we're", "we've", 'were', "weren't", 'what', "what's", 'when', "when's", 'where',
-             "where's", 'which', 'while',
-             'who', "who's", 'whom', 'why', "why's", 'with', "won't", 'would', "wouldn't", 'you', "you'd", "you'll",
-             "you're", "you've", 'your',
-             'yours', 'yourself', 'yourselves'}
-
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -48,8 +23,8 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
     # @TODO Need to check if url is already in database
-    if resp.status >= 400 or resp.status == 204:
-        # @TODO Need to add url to database
+    if resp.status >= 400 or resp.status == 204 or url in db.visited_urls:
+        db.invalid_urls.add(url)
         return list()
     
     if not resp.raw_response or not resp.raw_response.content:
@@ -71,8 +46,10 @@ def extract_next_links(url, resp):
 
     # Skip page if the text is too short
     if len(normalized_text) < lower_bound:
-        # @TODO Need to add url to database
+        db.invalid_urls.add(url)
         return list()
+    
+    # @TODO Need to tokenize the text to database
 
     clean_links = set()
 
@@ -116,6 +93,8 @@ def is_valid(url):
             return False
         if parsed.netloc not in allowed_domains:
             return False
+        if url in db.visited_urls:
+            return False
         for trap in trap_urls:
             if trap in url:
                 return False
@@ -139,18 +118,9 @@ def is_valid(url):
             if url_date < datetime(2024, 10, 1):
                 return False
         
+        db.unique_urls.add(parsed.netloc)
         return True
 
     except TypeError:
         print ("TypeError for ", parsed)
         raise
-
-
-# def extract_html_content(resp):
-#     """
-#     Extract and print the content of the HTML page
-
-#     @TODO Need to be tokenized instead of printing to the console
-#     """
-#     soup = BeautifulSoup(resp.raw_response.content, "lxml")
-#     print(soup.get_text(separator=" ", strip=True))
