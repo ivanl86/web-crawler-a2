@@ -119,6 +119,10 @@ def is_valid(url):
 
             if url_date < datetime(2024, 10, 1):
                 return False
+            
+        # Track subdomains within `uci.edu` domain
+        if parsed.netloc.endswith("uci.edu"):
+            db.subdomains[parsed.netloc] = db.subdomains.get(parsed.netloc, 0) + 1
         
         db.unique_urls.add(url)
         return True
