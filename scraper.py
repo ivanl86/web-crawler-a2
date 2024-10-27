@@ -111,6 +111,16 @@ def is_valid(url):
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
             return False
         
+        # Find year in pattern yyyy
+        year_pattern = re.search(r"/(\d{4})/", parsed.path)
+
+        if year_pattern:
+            year_str = year_pattern.group(1)
+            
+            # Remove urls that are not in 2024
+            if int(year_str) != 2024:
+                return False
+        
         # Find date in pattern yyyy-mm-dd
         date_pattern = re.search(r"(\d{4}-\d{2})(-\d{2})?", parsed.query)
 
