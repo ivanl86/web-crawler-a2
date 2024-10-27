@@ -115,10 +115,16 @@ def is_valid(url):
 
         if date_pattern:
             date_str = date_pattern.group(1)
-            url_date = datetime.strptime(date_str, "%Y-%m")
+            url_date = datetime.strptime(date_str, "%Y-%m-%d")
+            today = datetime.today().strftime("%Y-%m-%d")
 
-            if url_date < datetime(2024, 10, 1):
+            # Remove urls that are not from today
+            if url_date != today:
                 return False
+
+            # Remove urls that are older than 2024-10-01
+            # if url_date < datetime(2024, 10, 1):
+            #     return False
             
         # Track subdomains within `uci.edu` domain
         if parsed.netloc.endswith("uci.edu"):
