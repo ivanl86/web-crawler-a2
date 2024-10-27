@@ -122,7 +122,7 @@ def is_valid(url):
                 return False
         
         # Find date in pattern yyyy-mm-dd
-        date_pattern = re.search(r"(\d{4}-\d{2})(-\d{2})?", parsed.query)
+        date_pattern = re.search(r"(\d{4}-\d{2}-\d{2})?", parsed.query)
 
         if date_pattern:
             date_str = date_pattern.group(1)
