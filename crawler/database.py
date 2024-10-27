@@ -18,7 +18,9 @@ class Database:
 
     @staticmethod
     def write_all():
+        print ("\nCreating data directory...\n")
         os.makedirs(path_name, exist_ok=True)
+        print ("Writing data...\n")
         try:
             Database.write_unique_urls()
             Database.write_longest_page()
