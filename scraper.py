@@ -120,7 +120,7 @@ def is_valid(url):
             if url_date < datetime(2024, 10, 1):
                 return False
         
-        db.unique_urls.add(parsed.netloc)
+        db.unique_urls.add(url)
         return True
 
     except TypeError:
