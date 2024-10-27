@@ -1,6 +1,8 @@
 import re
 from collections import Counter
 
+min_token_length = 3
+
 class Database:
     invalid_urls = set()
     # Save all unique urls for problem 1
@@ -14,29 +16,29 @@ class Database:
     
     @staticmethod
     def write_unique_urls():
-        with open("unique_urls.txt", "w") as f:
+        with open("data/unique_urls.txt", "w") as f:
             f.write(f"Total unique urls found: {len(Database.unique_urls)}\n")
             f.writelines(f"{url}\n" for url in Database.unique_urls)
 
     @staticmethod
     def write_longest_page():
-        with open("longest_page.txt", "w") as f:
+        with open("data/longest_page.txt", "w") as f:
             f.write(f"{Database.longest_page[0]} {Database.longest_page[1]}\n")
 
     @staticmethod
     def write_common_tokens():
         top_common_words = sorted(((token, count) for token, count in Database.tokens.items() if token not in stop_words), key=lambda item: item[1], reverse=True)[:50]
-        with open("tokens.txt", "w") as f:
+        with open("data/tokens.txt", "w") as f:
             f.writelines(f"{token} {count}\n" for token, count in top_common_words)
 
     @staticmethod
     def write_subdomains():
-        with open("subdomains.txt", "w") as f:
+        with open("data/subdomains.txt", "w") as f:
             f.writelines(f"{subdomain}\n" for subdomain in sorted(Database.subdomains.items()))
 
     @staticmethod
     def tokenize(url, text):
-        tokens = re.findall(r"[a-zA-Z0-9']+", text.lower())
+        tokens = [token for token in re.findall(r"[a-zA-Z0-9']+", text.lower()) if len(token) >= min_token_length]
 
         # Find the longest page including stop words in problem 2
         token_count = len(tokens)
