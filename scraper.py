@@ -1,7 +1,9 @@
 from datetime import datetime
 import re
-from urllib.parse import urlparse,urlunparse
-from bs4 import BeautifulSoup
+from urllib.parse import urlparse, urlunparse
+from bs4 import BeautifulSoup, Comment
+
+lower_bound = 2500
 
 # A set of stop words that will be ignored when reading from pages
 stop_word = {'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', "aren't", 'as',
@@ -33,6 +35,7 @@ def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
+
 def extract_next_links(url, resp):
     # Implementation required.
     # url: the URL that was used to get the page
@@ -44,11 +47,47 @@ def extract_next_links(url, resp):
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
-    links = extract_links(url, resp)
+    # @TODO Need to check if url is already in database
+    if resp.status >= 400 or resp.status == 204:
+        # @TODO Need to add url to database
+        return list()
+    
+    if not resp.raw_response or not resp.raw_response.content:
+        # @TODO Need to add url to database
+        return list()
+    
+    soup = BeautifulSoup(resp.raw_response.content, "lxml")
 
-    extract_html_content(resp)
+    # Remove HTML comments
+    for comment in soup(text=lambda text: isinstance(text, Comment)):
+        comment.extract()
 
-    return [link for link in links if is_valid(link)]
+    # Remove HTML tags
+    web_text = soup.get_text(separator=" ", strip=True)
+    # Replace multiple spaces with a single space
+    space_delimited_text = re.sub(r"\s+", " ", web_text)
+    # Normalize text
+    normalized_text = re.sub(r"\s+([?.!])", r"\1", space_delimited_text)
+
+    # Skip page if the text is too short
+    if len(normalized_text) < lower_bound:
+        # @TODO Need to add url to database
+        return list()
+
+    clean_links = set()
+
+    # Extract links and remove fragments
+    for link in soup.find_all('a'):
+        href = link.get('href')
+        if href:
+            parsed_link = urlparse(href)
+            link_with_no_frag = urlunparse(
+                (parsed_link.scheme, parsed_link.netloc, parsed_link.path, parsed_link.params, parsed_link.query, "")
+            )
+            clean_links.add(link_with_no_frag)
+
+    return list(clean_links)
+
 
 def is_valid(url):
     # Decide whether to crawl this url or not. 
@@ -106,38 +145,12 @@ def is_valid(url):
         print ("TypeError for ", parsed)
         raise
 
-def extract_links(url, resp):
-    if resp.status != 200:
-        return []
-    
-    if not resp.raw_response or not resp.raw_response.content:
-        return []
-    
-    soup = BeautifulSoup(resp.raw_response.content, "lxml")
-    ## start to find the a tag and extract the href content
-    raw_links = []
-    for a_tag in soup.find_all('a'):
-        href = a_tag.get('href')
 
-        if href:
-            raw_links.append(href)
+# def extract_html_content(resp):
+#     """
+#     Extract and print the content of the HTML page
 
-    clean_links = []
-    for link in raw_links:
-        parsed_link = urlparse(link)
-        link_with_no_frag = urlunparse(
-            (parsed_link.scheme, parsed_link.netloc, parsed_link.path, parsed_link.params, parsed_link.query, "")
-        )
-        clean_links.append(link_with_no_frag)
-
-
-    return clean_links
-
-def extract_html_content(resp):
-    """
-    Extract and print the content of the HTML page
-
-    @TODO Need to be tokenized instead of printing to the console
-    """
-    soup = BeautifulSoup(resp.raw_response.content, "lxml")
-    # print(soup.get_text(separator=" ", strip=True))
+#     @TODO Need to be tokenized instead of printing to the console
+#     """
+#     soup = BeautifulSoup(resp.raw_response.content, "lxml")
+#     print(soup.get_text(separator=" ", strip=True))
