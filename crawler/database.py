@@ -50,7 +50,7 @@ class Database:
     @staticmethod
     def write_subdomains():
         with open(f"{path_name}/subdomains.txt", "w") as f:
-            f.writelines(f"{subdomain}\n" for subdomain in sorted(Database.subdomains.items()))
+            f.writelines(f"{subdomain} {count}\n" for subdomain, count in sorted(Database.subdomains.items()))
 
     @staticmethod
     def tokenize(url, text):
