@@ -22,13 +22,14 @@ def extract_next_links(url, resp):
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
-    # @TODO Need to check if url is already in database
+    # Skip page if it's an invalid URL
     if resp.status >= 400 or resp.status == 204 or url in db.invalid_urls:
         db.invalid_urls.add(url)
         return list()
     
+    # Skip page if it's empty
     if not resp.raw_response or not resp.raw_response.content:
-        # @TODO Need to add url to database
+        db.invalid_urls.add(url)
         return list()
     
     soup = BeautifulSoup(resp.raw_response.content, "lxml")
@@ -49,7 +50,8 @@ def extract_next_links(url, resp):
         db.invalid_urls.add(url)
         return list()
     
-    # @TODO Need to tokenize the text to database
+    # Tokenize text and save to database
+    db.tokenize(url, normalized_text)
 
     clean_links = set()
 
@@ -75,7 +77,7 @@ def is_valid(url):
         "cs.uci.edu",
         "informatics.uci.edu",
         "stat.uci.edu",
-        "today.uci.edu"
+        "today.uci.edu/department/information_computer_sciences"
     }
 
     trap_urls = {
