@@ -114,7 +114,7 @@ def is_valid(url):
         # Find year in pattern yyyy
         year_pattern = re.search(r"/(\d{4})/", parsed.path)
 
-        if year_pattern:
+        if year_pattern and year_pattern.group(1):
             year_str = year_pattern.group(1)
             
             # Remove urls that are not in 2024
@@ -124,7 +124,7 @@ def is_valid(url):
         # Find date in pattern yyyy-mm-dd
         date_pattern = re.search(r"(\d{4}-\d{2}-\d{2})?", parsed.query)
 
-        if date_pattern:
+        if date_pattern and date_pattern.group(1):
             date_str = date_pattern.group(1)
             url_date = datetime.strptime(date_str, "%Y-%m-%d")
             today = datetime.today().strftime("%Y-%m-%d")
