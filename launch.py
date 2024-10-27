@@ -13,14 +13,7 @@ def main(config_file, restart):
     config.cache_server = get_cache_server(config, restart)
     crawler = Crawler(config, restart)
     crawler.start()
-    try:
-        db.write_unique_urls()
-        db.write_longest_page()
-        db.write_common_tokens()
-        db.write_subdomains()
-
-    except Exception as e:
-        print(e)
+    db.write_all()
 
 
 if __name__ == "__main__":

@@ -1,6 +1,8 @@
+import os
 import re
 from collections import Counter
 
+path_name = "data"
 min_token_length = 3
 
 class Database:
@@ -13,27 +15,39 @@ class Database:
     tokens = dict()
     # Save all subdomains and their unique urls for problem 4
     subdomains = dict()
+
+    @staticmethod
+    def write_all():
+        os.makedirs(path_name, exist_ok=True)
+        try:
+            Database.write_unique_urls()
+            Database.write_longest_page()
+            Database.write_common_tokens()
+            Database.write_subdomains()
+
+        except Exception as e:
+            print(e)
     
     @staticmethod
     def write_unique_urls():
-        with open("data/unique_urls.txt", "w") as f:
+        with open(f"{path_name}/unique_urls.txt", "w") as f:
             f.write(f"Total unique urls found: {len(Database.unique_urls)}\n")
             f.writelines(f"{url}\n" for url in Database.unique_urls)
 
     @staticmethod
     def write_longest_page():
-        with open("data/longest_page.txt", "w") as f:
+        with open(f"{path_name}/longest_page.txt", "w") as f:
             f.write(f"{Database.longest_page[0]} {Database.longest_page[1]}\n")
 
     @staticmethod
     def write_common_tokens():
         top_common_words = sorted(((token, count) for token, count in Database.tokens.items() if token not in stop_words), key=lambda item: item[1], reverse=True)[:50]
-        with open("data/tokens.txt", "w") as f:
+        with open(f"{path_name}/tokens.txt", "w") as f:
             f.writelines(f"{token} {count}\n" for token, count in top_common_words)
 
     @staticmethod
     def write_subdomains():
-        with open("data/subdomains.txt", "w") as f:
+        with open(f"{path_name}/subdomains.txt", "w") as f:
             f.writelines(f"{subdomain}\n" for subdomain in sorted(Database.subdomains.items()))
 
     @staticmethod
