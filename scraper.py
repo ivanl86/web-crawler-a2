@@ -97,9 +97,8 @@ def is_valid(url):
             return False
         if url in db.invalid_urls:
             return False
-        for trap in trap_urls:
-            if trap in url:
-                return False
+        if any(trap in url for trap in trap_urls):
+            return False
         if re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -117,8 +116,8 @@ def is_valid(url):
         if year_pattern and year_pattern.group(1):
             year_str = year_pattern.group(1)
             
-            # Remove urls that are not in 2024
-            if int(year_str) != 2024:
+            # Remove urls that are older than 2020
+            if year_str < "2020":
                 return False
         
         # Find date in pattern yyyy-mm-dd
@@ -126,11 +125,9 @@ def is_valid(url):
 
         if date_pattern and date_pattern.group(1):
             date_str = date_pattern.group(1)
-            url_date = datetime.strptime(date_str, "%Y-%m-%d")
-            today = datetime.today().strftime("%Y-%m-%d")
 
             # Remove urls that are not from today
-            if url_date != today:
+            if date_str != datetime.today().strftime("%Y-%m-%d"):
                 return False
 
             # Remove urls that are older than 2024-10-01
@@ -146,4 +143,5 @@ def is_valid(url):
 
     except TypeError:
         print ("TypeError for ", parsed)
-        raise
+        # raise
+        return False
