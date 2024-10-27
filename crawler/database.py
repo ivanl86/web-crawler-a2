@@ -33,7 +33,7 @@ class Database:
     @staticmethod
     def write_unique_urls():
         with open(f"{path_name}/unique_urls.txt", "w") as f:
-            f.write(f"Total unique urls found: {len(Database.unique_urls)}\n")
+            f.write(f"Total unique urls found: {len(Database.unique_urls)}\n\n")
             f.writelines(f"{url}\n" for url in Database.unique_urls)
 
     @staticmethod
