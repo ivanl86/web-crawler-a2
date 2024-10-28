@@ -90,23 +90,23 @@ def extract_links(url, resp):
     
     soup = BeautifulSoup(resp.raw_response.content, "lxml")
     ## start to find the a tag and extract the href content
-    raw_links = []
+    raw_links = set()
+
     for a_tag in soup.find_all('a'):
         href = a_tag.get('href')
 
         if href:
-            raw_links.append(href)
+            parsed_link = urlparse(href)
+            link_with_no_frag = urlunparse(
+                (parsed_link.scheme, parsed_link.netloc, parsed_link.path, parsed_link.params, parsed_link.query, "")
+            )
+            raw_links.add(link_with_no_frag)
 
-    clean_links = []
     for link in raw_links:
-        parsed_link = urlparse(link)
-        link_with_no_frag = urlunparse(
-            (parsed_link.scheme, parsed_link.netloc, parsed_link.path, parsed_link.params, parsed_link.query, "")
-        )
-        clean_links.append(link_with_no_frag)
+       print(link)
 
+    return list(raw_links)
 
-    return clean_links
 
 def extract_html_content(resp):
     """
