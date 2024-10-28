@@ -6,6 +6,10 @@ path_name = "data"
 min_token_length = 3
 
 class Database:
+
+    # Save all visited urls
+    visited_urls = set()
+    # Save all invalid urls
     invalid_urls = set()
     # Save all unique urls for problem 1
     unique_urls = set()

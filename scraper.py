@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup, Comment
 from crawler.database import Database as db
 
 lower_bound = 2500
+year_limit = datetime.now().year
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -22,8 +23,8 @@ def extract_next_links(url, resp):
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
-    # Skip page if it's an invalid URL
-    if resp.status >= 400 or resp.status == 204 or url in db.invalid_urls:
+    # Skip page if it's already scraped or an invalid URL
+    if resp.status != 200 or url in db.visited_urls or url in db.invalid_urls:
         db.invalid_urls.add(url)
         return list()
     
@@ -65,6 +66,7 @@ def extract_next_links(url, resp):
             )
             clean_links.add(link_with_no_frag)
 
+    db.visited_urls.add(url)
     return list(clean_links)
 
 
@@ -72,20 +74,23 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
+    
     allowed_domains = {
         "ics.uci.edu",
         "cs.uci.edu",
         "informatics.uci.edu",
-        "stat.uci.edu",
-        "today.uci.edu/department/information_computer_sciences"
+        "stat.uci.edu"
     }
+
+    specific_domain = "today.uci.edu"
+    specific_path = "/department/information_computer_sciences"
 
     trap_urls = {
         "?share=",
         "pdf",
         "redirect",
         "#comment",
-        "#comments"
+        "#comments",
         "#respond"
     }
 
@@ -93,6 +98,9 @@ def is_valid(url):
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
             return False
+        if not any(parsed.netloc.endswith(domain) for domain in allowed_domains):
+            if not parsed.netloc == specific_domain and not parsed.path.startswith(specific_path):
+                return False
         if parsed.netloc not in allowed_domains:
             return False
         if url in db.invalid_urls:
@@ -111,13 +119,13 @@ def is_valid(url):
             return False
         
         # Find year in pattern yyyy
-        year_pattern = re.search(r"/(\d{4})/", parsed.path)
+        year_pattern = re.search(r"(\d{4})", parsed.path)
 
         if year_pattern and year_pattern.group(1):
             year_str = year_pattern.group(1)
             
-            # Remove urls that are older than 2020
-            if year_str < "2020":
+            # Remove urls that are older than year limit
+            if int(year_str) < year_limit:
                 return False
         
         # Find date in pattern yyyy-mm-dd
@@ -127,7 +135,7 @@ def is_valid(url):
             date_str = date_pattern.group(1)
 
             # Remove urls that are not from today
-            if date_str != datetime.today().strftime("%Y-%m-%d"):
+            if datetime.strftime(date_str, "%Y-%m-%d") != datetime.today().strftime("%Y-%m-%d"):
                 return False
 
             # Remove urls that are older than 2024-10-01
