@@ -74,7 +74,7 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-    
+
     allowed_domains = {
         "ics.uci.edu",
         "cs.uci.edu",
@@ -101,9 +101,7 @@ def is_valid(url):
         if not any(parsed.netloc.endswith(domain) for domain in allowed_domains):
             if not parsed.netloc == specific_domain and not parsed.path.startswith(specific_path):
                 return False
-        if parsed.netloc not in allowed_domains:
-            return False
-        if url in db.invalid_urls:
+        if url in db.invalid_urls or url in db.visited_urls:
             return False
         if any(trap in url for trap in trap_urls):
             return False
