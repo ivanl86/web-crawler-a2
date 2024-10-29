@@ -1,15 +1,27 @@
-from datetime import datetime
 import re
 from urllib.parse import urlparse, urlunparse
 from bs4 import BeautifulSoup, Comment
 from crawler.database import Database as db
 
+# @TODO Remove after test phase
+import time
+
 lower_bound = 2500
-year_limit = datetime.now().year
+# page_limit = 5
+date_in_path_re = re.compile(r"(\d{4})(?:[/-](\d{1,2})(?:[/-](\d{1,2}))?)?")
+date_in_query_re = re.compile(r"(\d{4})((?:-\d{1,2})?)((?:-\d{1,2})?)?")
+# pagination_re = re.compile(r"/page/(\d+)?")
+invalid_url_ext_re = re.compile(r".*\.(css|js|bmp|gif|jpe?g|ico|png|tiff?|mid|mp2|mp3|mp4|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso|epub|dll|cnf|tgz|sha1|thmx|mso|arff|rtf|jar|csv|rm|smil|wmv|swf|wma|zip|rar|gz)$", re.IGNORECASE)
+
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
-    return [link for link in links if is_valid(link)]
+    # @TODO Remove after test phase
+    start = time.time()
+    valid_links = [link for link in links if is_valid(link)]
+    run_time = time.time() - start
+    print(f"is_valid runtime: {run_time:.4f} seconds")
+    return valid_links
 
 
 def extract_next_links(url, resp):
@@ -52,7 +64,11 @@ def extract_next_links(url, resp):
         return list()
     
     # Tokenize text and save to database
+    # @TODO Remove after test phase
+    start = time.time()
     db.tokenize(url, normalized_text)
+    run_time = time.time() - start
+    print(f"tokenize runtime: {run_time:.4f} seconds")
 
     clean_links = set()
 
@@ -70,29 +86,30 @@ def extract_next_links(url, resp):
     return list(clean_links)
 
 
+allowed_domains = {
+    "ics.uci.edu",
+    "cs.uci.edu",
+    "informatics.uci.edu",
+    "stat.uci.edu"
+}
+
+specific_domain = "today.uci.edu"
+specific_path = "/department/information_computer_sciences"
+
+trap_urls = {
+    "?share=",
+    "pdf",
+    "redirect",
+    "#comment",
+    "#comments",
+    "#respond"
+}
+
+
 def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-
-    allowed_domains = {
-        "ics.uci.edu",
-        "cs.uci.edu",
-        "informatics.uci.edu",
-        "stat.uci.edu"
-    }
-
-    specific_domain = "today.uci.edu"
-    specific_path = "/department/information_computer_sciences"
-
-    trap_urls = {
-        "?share=",
-        "pdf",
-        "redirect",
-        "#comment",
-        "#comments",
-        "#respond"
-    }
 
     try:
         parsed = urlparse(url)
@@ -105,40 +122,21 @@ def is_valid(url):
             return False
         if any(trap in url for trap in trap_urls):
             return False
-        if re.match(
-            r".*\.(css|js|bmp|gif|jpe?g|ico"
-            + r"|png|tiff?|mid|mp2|mp3|mp4"
-            + r"|wav|avi|mov|mpeg|ram|m4v|mkv|ogg|ogv|pdf"
-            + r"|ps|eps|tex|ppt|pptx|doc|docx|xls|xlsx|names"
-            + r"|data|dat|exe|bz2|tar|msi|bin|7z|psd|dmg|iso"
-            + r"|epub|dll|cnf|tgz|sha1"
-            + r"|thmx|mso|arff|rtf|jar|csv"
-            + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
+        if invalid_url_ext_re.match(parsed.path.lower()):
             return False
         
-        # Find year in pattern yyyy
-        year_pattern = re.search(r"(\d{4})", parsed.path)
-
-        if year_pattern and year_pattern.group(1):
-            year_str = year_pattern.group(1)
-            
-            # Remove urls that are older than year limit
-            if int(year_str) < year_limit:
-                return False
+        # Invalid if a link contains date
+        if date_in_path_re.search(parsed.path):
+            return False
+        if date_in_query_re.search(parsed.query):
+            return False
         
-        # Find date in pattern yyyy-mm-dd
-        date_pattern = re.search(r"(\d{4}-\d{2}-\d{2})?", parsed.query)
-
-        if date_pattern and date_pattern.group(1):
-            date_str = date_pattern.group(1)
-
-            # Remove urls that are not from today
-            if datetime.strftime(date_str, "%Y-%m-%d") != datetime.today().strftime("%Y-%m-%d"):
-                return False
-
-            # Remove urls that are older than 2024-10-01
-            # if url_date < datetime(2024, 10, 1):
-            #     return False
+        # Invalid after page limit
+        # pagination_match = pagination_re.search(parsed.path)
+        # if pagination_match:
+        #     page_num = int(pagination_match.group(1))
+        #     if page_num > page_limit:
+        #         return False
             
         # Track subdomains within `uci.edu` domain
         if parsed.netloc.endswith("uci.edu"):

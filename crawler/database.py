@@ -4,6 +4,7 @@ from collections import Counter
 
 path_name = "data"
 min_token_length = 3
+token_pattern = re.compile(r"[a-zA-Z0-9']+")
 
 class Database:
 
@@ -58,7 +59,7 @@ class Database:
 
     @staticmethod
     def tokenize(url, text):
-        tokens = [token for token in re.findall(r"[a-zA-Z0-9']+", text.lower()) if len(token) >= min_token_length]
+        tokens = [token for token in token_pattern.findall(text.lower()) if len(token) >= min_token_length]
 
         # Find the longest page including stop words in problem 2
         token_count = len(tokens)
