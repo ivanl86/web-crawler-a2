@@ -2,34 +2,10 @@ from datetime import datetime
 import re
 from urllib.parse import urlparse, urlunparse
 from bs4 import BeautifulSoup, Comment
+from crawler.database import Database as db
 
 lower_bound = 2500
-
-# A set of stop words that will be ignored when reading from pages
-stop_word = {'a', 'about', 'above', 'after', 'again', 'against', 'all', 'am', 'an', 'and', 'any', 'are', "aren't", 'as',
-             'at', 'be', 'because',
-             'been', 'before', 'being', 'below', 'between', 'both', 'but', 'by', "can't", 'cannot', 'could', "couldn't",
-             'did', "didn't", 'do',
-             'does', "doesn't", 'doing', "don't", 'down', 'during', 'each', 'few', 'for', 'from', 'further', 'had',
-             "hadn't", 'has', "hasn't",
-             'have', "haven't", 'having', 'he', "he'd", "he'll", "he's", 'her', 'here', "here's", 'hers', 'herself',
-             'him', 'himself', 'his',
-             'how', "how's", 'i', "i'd", "i'll", "i'm", "i've", 'if', 'in', 'into', 'is', "isn't", 'it', "it's", 'its',
-             'itself', "let's", 'me',
-             'more', 'most', "mustn't", 'my', 'myself', 'no', 'nor', 'not', 'of', 'off', 'on', 'once', 'only', 'or',
-             'other', 'ought', 'our',
-             'ours', 'ourselves', 'out', 'over', 'own', 'same', "shan't", 'she', "she'd", "she'll", "she's", 'should',
-             "shouldn't", 'so', 'some',
-             'such', 'than', 'that', "that's", 'the', 'their', 'theirs', 'them', 'themselves', 'then', 'there',
-             "there's", 'these', 'they',
-             "they'd", "they'll", "they're", "they've", 'this', 'those', 'through', 'to', 'too', 'under', 'until', 'up',
-             'very', 'was', "wasn't",
-             'we', "we'd", "we'll", "we're", "we've", 'were', "weren't", 'what', "what's", 'when', "when's", 'where',
-             "where's", 'which', 'while',
-             'who', "who's", 'whom', 'why', "why's", 'with', "won't", 'would', "wouldn't", 'you', "you'd", "you'll",
-             "you're", "you've", 'your',
-             'yours', 'yourself', 'yourselves'}
-
+year_limit = datetime.now().year
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -47,13 +23,14 @@ def extract_next_links(url, resp):
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
-    # @TODO Need to check if url is already in database
-    if resp.status >= 400 or resp.status == 204:
-        # @TODO Need to add url to database
+    # Skip page if it's already scraped or an invalid URL
+    if resp.status != 200 or url in db.visited_urls or url in db.invalid_urls:
+        db.invalid_urls.add(url)
         return list()
     
+    # Skip page if it's empty
     if not resp.raw_response or not resp.raw_response.content:
-        # @TODO Need to add url to database
+        db.invalid_urls.add(url)
         return list()
     
     soup = BeautifulSoup(resp.raw_response.content, "lxml")
@@ -71,8 +48,11 @@ def extract_next_links(url, resp):
 
     # Skip page if the text is too short
     if len(normalized_text) < lower_bound:
-        # @TODO Need to add url to database
+        db.invalid_urls.add(url)
         return list()
+    
+    # Tokenize text and save to database
+    db.tokenize(url, normalized_text)
 
     clean_links = set()
 
@@ -86,6 +66,7 @@ def extract_next_links(url, resp):
             )
             clean_links.add(link_with_no_frag)
 
+    db.visited_urls.add(url)
     return list(clean_links)
 
 
@@ -93,20 +74,23 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
+
     allowed_domains = {
         "ics.uci.edu",
         "cs.uci.edu",
         "informatics.uci.edu",
-        "stat.uci.edu",
-        "today.uci.edu"
+        "stat.uci.edu"
     }
+
+    specific_domain = "today.uci.edu"
+    specific_path = "/department/information_computer_sciences"
 
     trap_urls = {
         "?share=",
         "pdf",
         "redirect",
         "#comment",
-        "#comments"
+        "#comments",
         "#respond"
     }
 
@@ -114,11 +98,13 @@ def is_valid(url):
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
             return False
-        if parsed.netloc not in allowed_domains:
-            return False
-        for trap in trap_urls:
-            if trap in url:
+        if not any(parsed.netloc.endswith(domain) for domain in allowed_domains):
+            if not parsed.netloc == specific_domain and not parsed.path.startswith(specific_path):
                 return False
+        if url in db.invalid_urls or url in db.visited_urls:
+            return False
+        if any(trap in url for trap in trap_urls):
+            return False
         if re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -130,27 +116,38 @@ def is_valid(url):
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower()):
             return False
         
-        date_pattern = re.search(r"(\d{4}-\d{2})(?:-\d{2})?", parsed.query)
+        # Find year in pattern yyyy
+        year_pattern = re.search(r"(\d{4})", parsed.path)
 
-        if date_pattern:
-            date_str = date_pattern.group(1)
-            url_date = datetime.strptime(date_str, "%Y-%m")
-
-            if url_date < datetime(2024, 10, 1):
+        if year_pattern and year_pattern.group(1):
+            year_str = year_pattern.group(1)
+            
+            # Remove urls that are older than year limit
+            if int(year_str) < year_limit:
                 return False
         
+        # Find date in pattern yyyy-mm-dd
+        date_pattern = re.search(r"(\d{4}-\d{2}-\d{2})?", parsed.query)
+
+        if date_pattern and date_pattern.group(1):
+            date_str = date_pattern.group(1)
+
+            # Remove urls that are not from today
+            if datetime.strftime(date_str, "%Y-%m-%d") != datetime.today().strftime("%Y-%m-%d"):
+                return False
+
+            # Remove urls that are older than 2024-10-01
+            # if url_date < datetime(2024, 10, 1):
+            #     return False
+            
+        # Track subdomains within `uci.edu` domain
+        if parsed.netloc.endswith("uci.edu"):
+            db.subdomains[parsed.netloc] = db.subdomains.get(parsed.netloc, 0) + 1
+        
+        db.unique_urls.add(url)
         return True
 
     except TypeError:
         print ("TypeError for ", parsed)
-        raise
-
-
-# def extract_html_content(resp):
-#     """
-#     Extract and print the content of the HTML page
-
-#     @TODO Need to be tokenized instead of printing to the console
-#     """
-#     soup = BeautifulSoup(resp.raw_response.content, "lxml")
-#     print(soup.get_text(separator=" ", strip=True))
+        # raise
+        return False
