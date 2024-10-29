@@ -2,12 +2,17 @@ import re
 from urllib.parse import urlparse, urlunparse
 from bs4 import BeautifulSoup, Comment
 from crawler.database import Database as db
+from simhash import Simhash
 
 # @TODO Remove after test phase
-import time
+# import time
+
 
 lower_bound = 2500
+simhash_threshold = 3
 # page_limit = 5
+space_delim_re = re.compile(r"\s+")
+normalize_re = re.compile(r"\s+([?.!])")
 date_in_path_re = re.compile(r"(\d{4})(?:[/-](\d{1,2})(?:[/-](\d{1,2}))?)?")
 date_in_query_re = re.compile(r"(\d{4})((?:-\d{1,2})?)((?:-\d{1,2})?)?")
 # pagination_re = re.compile(r"/page/(\d+)?")
@@ -17,10 +22,10 @@ invalid_url_ext_re = re.compile(r".*\.(css|js|bmp|gif|jpe?g|ico|png|tiff?|mid|mp
 def scraper(url, resp):
     links = extract_next_links(url, resp)
     # @TODO Remove after test phase
-    start = time.time()
+    # start = time.time()
     valid_links = [link for link in links if is_valid(link)]
-    run_time = time.time() - start
-    print(f"is_valid runtime: {run_time:.4f} seconds")
+    # run_time = time.time() - start
+    # print(f"is_valid runtime: {run_time:.4f} seconds")
     return valid_links
 
 
@@ -54,9 +59,18 @@ def extract_next_links(url, resp):
     # Remove HTML tags
     web_text = soup.get_text(separator=" ", strip=True)
     # Replace multiple spaces with a single space
-    space_delimited_text = re.sub(r"\s+", " ", web_text)
+    space_delim_text = space_delim_re.sub(" ", web_text)
     # Normalize text
-    normalized_text = re.sub(r"\s+([?.!])", r"\1", space_delimited_text)
+    normalized_text = normalize_re.sub(r"\1", space_delim_text)
+
+    # Skip page if it has high similarity to other pages
+    sim_hash = Simhash(normalized_text)
+    if any(abs(hash - sim_hash.value) <= simhash_threshold for hash in db.content_hash):
+        db.content_hash.add(sim_hash.value)
+        db.invalid_urls.add(url)
+        return list()
+    
+    db.content_hash.add(sim_hash.value)
 
     # Skip page if the text is too short
     if len(normalized_text) < lower_bound:
@@ -65,10 +79,10 @@ def extract_next_links(url, resp):
     
     # Tokenize text and save to database
     # @TODO Remove after test phase
-    start = time.time()
+    # start = time.time()
     db.tokenize(url, normalized_text)
-    run_time = time.time() - start
-    print(f"tokenize runtime: {run_time:.4f} seconds")
+    # run_time = time.time() - start
+    # print(f"tokenize runtime: {run_time:.4f} seconds")
 
     clean_links = set()
 
@@ -113,23 +127,37 @@ def is_valid(url):
 
     try:
         parsed = urlparse(url)
-        if parsed.scheme not in set(["http", "https"]):
+
+        if (parsed.scheme not in {"http", "https"} or
+            not any(parsed.netloc.endswith(domain) for domain in allowed_domains) and
+            not (parsed.netloc == specific_domain or parsed.path.startswith(specific_path)) or
+            url in db.invalid_urls or
+            url in db.visited_urls or
+            any(trap in url for trap in trap_urls) or
+            invalid_url_ext_re.match(parsed.path.lower()) or
+            # Invalid if a link contains date
+            date_in_path_re.search(parsed.path) or
+            date_in_query_re.search(parsed.query)):
+
+            db.invalid_urls.add(url)
             return False
-        if not any(parsed.netloc.endswith(domain) for domain in allowed_domains):
-            if not parsed.netloc == specific_domain and not parsed.path.startswith(specific_path):
-                return False
-        if url in db.invalid_urls or url in db.visited_urls:
-            return False
-        if any(trap in url for trap in trap_urls):
-            return False
-        if invalid_url_ext_re.match(parsed.path.lower()):
-            return False
+        # if parsed.scheme not in set(["http", "https"]):
+        #     return False
+        # if not any(parsed.netloc.endswith(domain) for domain in allowed_domains):
+        #     if not parsed.netloc == specific_domain and not parsed.path.startswith(specific_path):
+        #         return False
+        # if url in db.invalid_urls or url in db.visited_urls:
+        #     return False
+        # if any(trap in url for trap in trap_urls):
+        #     return False
+        # if invalid_url_ext_re.match(parsed.path.lower()):
+        #     return False
         
-        # Invalid if a link contains date
-        if date_in_path_re.search(parsed.path):
-            return False
-        if date_in_query_re.search(parsed.query):
-            return False
+        # # Invalid if a link contains date
+        # if date_in_path_re.search(parsed.path):
+        #     return False
+        # if date_in_query_re.search(parsed.query):
+        #     return False
         
         # Invalid after page limit
         # pagination_match = pagination_re.search(parsed.path)
