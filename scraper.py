@@ -50,8 +50,13 @@ def extract_next_links(url, resp):
         db.invalid_urls.add(url)
         return list()
     
-    soup = BeautifulSoup(resp.raw_response.content, "lxml")
-
+    try:
+        soup = BeautifulSoup(resp.raw_response.content, "lxml")
+    except Exception as e:
+        print(e)
+        db.invalid_urls.add(url)
+        return list()
+    
     # Remove HTML comments
     for comment in soup(text=lambda text: isinstance(text, Comment)):
         comment.extract()
