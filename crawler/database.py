@@ -2,8 +2,11 @@ import os
 import re
 from collections import Counter
 
+
 path_name = "data"
 min_token_length = 3
+token_pattern = re.compile(r"[a-zA-Z0-9']+")
+
 
 class Database:
 
@@ -11,6 +14,8 @@ class Database:
     visited_urls = set()
     # Save all invalid urls
     invalid_urls = set()
+    # Save content hash
+    content_hash = set()
     # Save all unique urls for problem 1
     unique_urls = set()
     # Save longest page url and its word count for problem 2
@@ -19,6 +24,7 @@ class Database:
     tokens = dict()
     # Save all subdomains and their unique urls for problem 4
     subdomains = dict()
+
 
     @staticmethod
     def write_all():
@@ -34,16 +40,19 @@ class Database:
         except Exception as e:
             print(e)
     
+
     @staticmethod
     def write_unique_urls():
         with open(f"{path_name}/unique_urls.txt", "w") as f:
             f.write(f"Total unique urls found: {len(Database.unique_urls)}\n\n")
             f.writelines(f"{url}\n" for url in Database.unique_urls)
 
+
     @staticmethod
     def write_longest_page():
         with open(f"{path_name}/longest_page.txt", "w") as f:
             f.write(f"{Database.longest_page[0]} {Database.longest_page[1]}\n")
+
 
     @staticmethod
     def write_common_tokens():
@@ -51,14 +60,16 @@ class Database:
         with open(f"{path_name}/tokens.txt", "w") as f:
             f.writelines(f"{token} {count}\n" for token, count in top_common_words)
 
+
     @staticmethod
     def write_subdomains():
         with open(f"{path_name}/subdomains.txt", "w") as f:
             f.writelines(f"{subdomain} {count}\n" for subdomain, count in sorted(Database.subdomains.items()))
 
+
     @staticmethod
     def tokenize(url, text):
-        tokens = [token for token in re.findall(r"[a-zA-Z0-9']+", text.lower()) if len(token) >= min_token_length]
+        tokens = [token for token in token_pattern.findall(text.lower()) if len(token) >= min_token_length]
 
         # Find the longest page including stop words in problem 2
         token_count = len(tokens)
