@@ -9,7 +9,7 @@ from simhash import Simhash
 
 
 lower_bound = 2500
-simhash_threshold = 3
+simhash_threshold = 5
 # page_limit = 5
 space_delim_re = re.compile(r"\s+")
 normalize_re = re.compile(r"\s+([?.!])")
@@ -84,17 +84,23 @@ def extract_next_links(url, resp):
     # run_time = time.time() - start
     # print(f"tokenize runtime: {run_time:.4f} seconds")
 
-    clean_links = set()
+    # clean_links = set()
+
+    # for link in soup.find_all('a'):
+    #     href = link.get('href')
+    #     if href and "filter" not in href:
+    #         parsed_link = urlparse(href)
+    #         link_with_no_frag = urlunparse(
+    #             (parsed_link.scheme, parsed_link.netloc, parsed_link.path, parsed_link.params, parsed_link.query, "")
+    #         )
+    #         clean_links.add(link_with_no_frag)
 
     # Extract links and remove fragments
-    for link in soup.find_all('a'):
-        href = link.get('href')
-        if href:
-            parsed_link = urlparse(href)
-            link_with_no_frag = urlunparse(
-                (parsed_link.scheme, parsed_link.netloc, parsed_link.path, parsed_link.params, parsed_link.query, "")
-            )
-            clean_links.add(link_with_no_frag)
+    clean_links = {
+        urlunparse(urlparse(href)._replace(fragment=""))  # Remove fragment
+        for link in soup.find_all('a')
+        if (href := link.get('href'))
+    }
 
     db.visited_urls.add(url)
     return list(clean_links)
@@ -135,6 +141,7 @@ def is_valid(url):
             url in db.visited_urls or
             any(trap in url for trap in trap_urls) or
             invalid_url_ext_re.match(parsed.path.lower()) or
+            "filter" in url or
             # Invalid if a link contains date
             date_in_path_re.search(parsed.path) or
             date_in_query_re.search(parsed.query)):
