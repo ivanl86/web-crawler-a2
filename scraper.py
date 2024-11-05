@@ -140,7 +140,7 @@ def is_valid(url):
         parsed = urlparse(url)
 
         if (parsed.scheme not in {"http", "https"} or
-            not any(parsed.netloc.endswith(domain) for domain in allowed_domains) and
+            not any(parsed.netloc == domain or parsed.netloc.endswith("." + domain) for domain in allowed_domains) and
             not (parsed.netloc == specific_domain or parsed.path.startswith(specific_path)) or
             url in db.invalid_urls or
             url in db.visited_urls or
@@ -180,7 +180,7 @@ def is_valid(url):
             
         # Track subdomains within `uci.edu` domain
         if parsed.netloc.endswith("uci.edu"):
-            db.subdomains[parsed.netloc] = db.subdomains.get(parsed.netloc, 0) + 1
+            db.subdomains[parsed.netloc.lower().strip()] = db.subdomains.get(parsed.netloc.lower().strip(), 0) + 1
         
         db.unique_urls.add(url)
         return True
